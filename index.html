@@ -348,6 +348,34 @@
             box-shadow: 0 14px 34px rgba(0,0,0,.4); transition: transform .55s cubic-bezier(.22,1,.36,1);
         }
         .toast.show { transform: translate(-50%, 0); }
+
+        /* ===== LIST UCAPAN TAMU (FIREBASE) ===== */
+        .wishes-wrap { max-height: 380px; overflow-y: auto; padding-right: 4px; text-align: left; margin-top: 8px; }
+        .wish-item {
+            background: var(--card); border: 1px solid var(--line); border-radius: 16px;
+            padding: 14px 16px; margin-bottom: 12px; animation: wishIn .4s ease;
+        }
+        @keyframes wishIn { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: translateY(0); } }
+        .wish-head { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+        .wish-ava {
+            width: 34px; height: 34px; border-radius: 50%; flex-shrink: 0; display: grid; place-items: center;
+            font-family: var(--font-heading); font-size: .72rem; color: var(--gold);
+            background: linear-gradient(135deg, rgba(211,181,127,.2), rgba(211,181,127,.05));
+            border: 1px solid rgba(211,181,127,.35);
+        }
+        .wish-name { font-weight: 600; font-size: .86rem; color: var(--gold-soft); }
+        .wish-meta { font-size: .62rem; color: var(--muted); display: flex; gap: 6px; align-items: center; }
+        .wish-badge {
+            margin-left: auto; font-size: .56rem; font-weight: 700; letter-spacing: .12em; text-transform: uppercase;
+            padding: 3px 10px; border-radius: 20px; flex-shrink: 0;
+        }
+        .wish-badge.hadir { color: #8fdcae; background: rgba(61,168,109,.14); border: 1px solid rgba(61,168,109,.35); }
+        .wish-badge.tidak { color: #eda8a8; background: rgba(190,80,80,.14); border: 1px solid rgba(190,80,80,.35); }
+        .wish-badge.ragu { color: var(--gold-soft); background: rgba(211,181,127,.12); border: 1px solid rgba(211,181,127,.35); }
+        .wish-text { font-size: .82rem; color: var(--text); line-height: 1.65; word-wrap: break-word; white-space: pre-wrap; }
+        .wish-empty { text-align: center; color: var(--muted); font-size: .8rem; padding: 26px 10px; }
+        .wish-empty i { display: block; font-size: 1.5rem; color: var(--gold); opacity: .35; margin-bottom: 10px; }
+        .wish-count { font-size: .66rem; letter-spacing: .25em; text-transform: uppercase; color: var(--muted); margin-top: 18px; display: flex; align-items: center; justify-content: center; gap: 7px; }
     </style>
 </head>
 <body>
@@ -657,6 +685,23 @@
                 <h3>Terima Kasih, <span id="rsvp-success-name"></span>!</h3>
                 <p>Konfirmasi Anda telah kami terima. Semoga Allah memudahkan setiap urusan kami.</p>
             </div>
+
+            <!-- ===== LIST UCAPAN TAMU (BARU) ===== -->
+            <div style="margin-top: 56px;" data-aos="fade-up">
+                <span class="eyebrow">Wishes</span>
+                <h2 class="section-title" style="font-size: 1.6rem;">Ucapan &amp; Doa</h2>
+                <div class="head-orn"><i></i><span class="dia"></span><i></i></div>
+            </div>
+            <div class="wishes-wrap" id="wish-list">
+                <div class="wish-empty" id="wish-empty">
+                    <i class="far fa-comment-dots"></i>
+                    Belum ada ucapan. Jadilah yang pertama mengirim doa!
+                </div>
+            </div>
+            <div class="wish-count">
+                <i class="fas fa-heart" style="color: var(--gold);"></i>
+                <span id="wish-total">0</span> Ucapan &amp; Doa
+            </div>
         </section>
 
         <!-- FOOTER -->
@@ -821,6 +866,115 @@
             const data = { title: 'Undangan Pernikahan', text: 'The Wedding of Amelia & Afdan — 24.10.2026', url: location.href };
             if (navigator.share) { try { await navigator.share(data); } catch(e){} }
             else { navigator.clipboard.writeText(location.href); showToast('Link undangan disalin! 🔗'); }
+        }
+    </script>
+
+    <!-- ===== UCAPAN ONLINE - FIREBASE (DATA TERPISAH: wedding2-comments) ===== -->
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+    <script>
+        var FIREBASE_CONFIG = {
+            apiKey: "AIzaSyABJy_Ot8TYQUTX_79h2EWwjcL8_lLRRw0",
+            authDomain: "komentar-d444e.firebaseapp.com",
+            databaseURL: "https://komentar-d444e-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "komentar-d444e",
+            storageBucket: "komentar-d444e.firebasestorage.app",
+            messagingSenderId: "208911159851",
+            appId: "1:208911159851:web:aa241697a7c3f241bb106e"
+        };
+
+        var weddingDB = null;
+        try {
+            firebase.initializeApp(FIREBASE_CONFIG);
+            weddingDB = firebase.database();
+        } catch (e) { console.warn('Firebase gagal dimuat:', e); }
+
+        var wishListEl = document.getElementById('wish-list');
+        var wishEmptyEl = document.getElementById('wish-empty');
+        var wishTotalEl = document.getElementById('wish-total');
+        var wishCount = 0;
+
+        function escHTML(s) {
+            return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;');
+        }
+        function initialsOf(n) {
+            var p = String(n || '?').trim().split(/\s+/);
+            return ((p[0]||'')[0] + (p[1]||'')[0] || '?').toUpperCase();
+        }
+        function timeAgoStr(ts) {
+            var d = Math.floor((Date.now() - ts) / 1000);
+            if (d < 60) return 'Baru saja';
+            if (d < 3600) return Math.floor(d/60) + ' menit lalu';
+            if (d < 86400) return Math.floor(d/3600) + ' jam lalu';
+            if (d < 604800) return Math.floor(d/86400) + ' hari lalu';
+            return new Date(ts).toLocaleDateString('id-ID', { day:'numeric', month:'long', year:'numeric' });
+        }
+
+        function renderWish(data, prepend) {
+            if (!data || !data.name) return;
+            wishCount++;
+            wishTotalEl.innerText = wishCount;
+            if (wishEmptyEl) wishEmptyEl.style.display = 'none';
+
+            var badge;
+            if (data.status === 'Hadir') {
+                badge = '<span class="wish-badge hadir"><i class="fas fa-check"></i> Hadir</span>';
+            } else if (data.status === 'Tidak Hadir') {
+                badge = '<span class="wish-badge tidak"><i class="fas fa-xmark"></i> Berhalangan</span>';
+            } else {
+                badge = '<span class="wish-badge ragu">' + escHTML(data.status || '-') + '</span>';
+            }
+
+            var guestsTxt = (data.guests && data.guests > 1) ? ' · ' + data.guests + ' orang' : '';
+
+            var item = document.createElement('div');
+            item.className = 'wish-item';
+            item.innerHTML =
+                '<div class="wish-head">' +
+                    '<div class="wish-ava">' + escHTML(initialsOf(data.name)) + '</div>' +
+                    '<div style="min-width:0;">' +
+                        '<div class="wish-name">' + escHTML(data.name) + '</div>' +
+                        '<div class="wish-meta">' + timeAgoStr(data.time || Date.now()) + guestsTxt + '</div>' +
+                    '</div>' + badge +
+                '</div>' +
+                (data.message ? '<div class="wish-text">' + escHTML(data.message) + '</div>' : '');
+
+            if (prepend) wishListEl.insertBefore(item, wishListEl.firstChild);
+            else wishListEl.appendChild(item);
+        }
+
+        // Muat semua ucapan (real-time) — FOLDER KHUSUS VERSI BARU
+        if (weddingDB) {
+            weddingDB.ref('wedding2-comments').limitToLast(100).on('child_added', function(snap) {
+                renderWish(snap.val(), true);
+            }, function(err) {
+                console.warn('Gagal memuat ucapan:', err);
+            });
+        }
+
+        // RSVP versi online — tersimpan ke FOLDER KHUSUS VERSI BARU
+        function submitRSVP() {
+            var nama = (document.getElementById('rsvp-name').value || '').trim().slice(0, 50);
+            var attendEl = document.querySelector('input[name="attend"]:checked');
+            var guests = document.getElementById('rsvp-guests').value || '1';
+            var msg = (document.getElementById('rsvp-message').value || '').trim().slice(0, 500);
+
+            if (!nama) { showToast('Mohon isi nama Anda'); return; }
+            if (!attendEl) { showToast('Mohon pilih konfirmasi kehadiran'); return; }
+
+            var status = (attendEl.value === 'hadir') ? 'Hadir' : 'Tidak Hadir';
+            var data = { name: nama, status: status, guests: parseInt(guests, 10) || 1, message: msg, time: Date.now() };
+
+            if (!weddingDB) { showToast('Gagal terhubung, coba lagi'); return; }
+
+            weddingDB.ref('wedding2-comments').push(data).then(function() {
+                document.getElementById('rsvp-form-box').style.display = 'none';
+                document.getElementById('rsvp-success-name').innerText = nama;
+                document.getElementById('rsvp-success').style.display = 'block';
+                showToast('Terima kasih atas konfirmasinya');
+            }).catch(function() {
+                showToast('Gagal mengirim, coba lagi');
+            });
         }
     </script>
 </body>
