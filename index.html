@@ -314,6 +314,16 @@
         .btn-copy { background: none; border: none; color: var(--gold); cursor: pointer; font-size: .95rem; padding: 4px; transition: transform .25s; }
         .btn-copy:hover { transform: scale(1.2); }
         .gift-addr { font-size: .85rem; color: var(--muted); line-height: 1.85; text-align: left; }
+        
+        /* Custom Alamat Copy */
+        .gift-addr-copy { 
+            display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; 
+            border: 1px dashed rgba(211,181,127,.4); border-radius: 14px; padding: 13px 18px; 
+            color: var(--text); font-size: .85rem; line-height: 1.6; text-align: left; margin-bottom: 14px;
+        }
+        .qr-box { text-align: center; margin-top: 16px; }
+        .qr-box small { display: block; font-size: .6rem; letter-spacing: .2em; text-transform: uppercase; color: var(--muted); margin-bottom: 8px; }
+        .qr-box img { border-radius: 12px; border: 1px solid var(--line); padding: 8px; background: var(--bg-soft); }
 
         /* RSVP */
         .field { text-align: left; margin-bottom: 18px; }
@@ -714,8 +724,24 @@
             </div>
 
             <div class="gift glass" data-aos="fade-up" data-aos-duration="1000" data-aos-delay="200">
-                <div class="gift-head"><i class="fas fa-gift"></i><div><h3>Kirim Hadiah</h3><small>Alamat pengiriman</small></div></div>
-                <div class="gift-addr">Jl. Bahagia No. 21, RT 01/RW 05, Kel. Cinta, Kec. Harmoni, Jakarta Pusat, 10110</div>
+                <div class="gift-head"><i class="fas fa-gift"></i><div><h3>Kirim Hadiah</h3><small>Alamat Pengiriman (Rumah Mempelai Wanita)</small></div></div>
+                
+                <!-- Alamat dengan Tombol Copy -->
+                <div class="gift-addr-copy">
+                    <span id="gift-address-text">Jl. Melati No. 5, RT 03/RW 04, Kel. Asri, Kec. Bintaro, Tangerang Selatan, 15212</span>
+                    <button class="btn-copy" onclick="copyToClipboard(document.getElementById('gift-address-text').innerText, this)" title="Salin Alamat"><i class="far fa-copy"></i></button>
+                </div>
+
+                <!-- Tombol Buka Maps -->
+                <a href="https://www.google.com/maps/search/?api=1&query=Jl.+Melati+No.+5,+RT+03/RW+04,+Kel.+Asri,+Kec.+Bintaro,+Tangerang+Selatan,+15212" target="_blank" class="btn btn-gold" style="width: 100%; margin-bottom: 10px;">
+                    <i class="fas fa-location-dot"></i> Buka di Google Maps
+                </a>
+
+                <!-- QR Code Menuju Maps -->
+                <div class="qr-box">
+                    <small>Scan QR untuk lokasi</small>
+                    <img src="https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=https%3A%2F%2Fwww.google.com%2Fmaps%2Fsearch%2F%3Fapi%3D1%26query%3DJl.%2BMelati%2BNo.%2B5%2C%2BRT%2B03%2FRW%2B04%2C%2BKel.%2BAsri%2C%2BKec.%2BBintaro%2C%2BTangerang%2BSelatan%2C%2B15212&bgcolor=15130f&color=d3b57f" alt="QR Code Alamat Hadiah" width="150">
+                </div>
             </div>
         </section>
 
@@ -808,10 +834,10 @@
                 clickable: true 
             },
             autoplay: {
-                delay: 5000, // Slide akan bergeser setiap 5 detik (5000 ms)
-                disableOnInteraction: false, // Tetap autoplay setelah diswipe manual
+                delay: 5000, 
+                disableOnInteraction: false, 
             },
-            loop: true, // Looping infinite agar kembali ke slide pertama dengan mulus
+            loop: true, 
         });
 
         // Inisialisasi GLightbox (Galeri)
@@ -898,14 +924,32 @@
             document.getElementById('seconds').innerText = s.toString().padStart(2, '0');
         }, 1000);
 
-        // ===== LOGIKA COPY TO CLIPBOARD (AMPLOP) =====
+        // ===== LOGIKA COPY TO CLIPBOARD (Diperbaiki agar work di lokal) =====
         function copyToClipboard(text, btn) {
-            navigator.clipboard.writeText(text).then(() => {
-                const icon = btn.querySelector('i');
-                icon.className = 'fas fa-check';
-                showToast('Nomor rekening berhasil disalin!');
-                setTimeout(() => icon.className = 'far fa-copy', 2000);
-            });
+            // Membuat textarea sementara untuk menyalin teks (kompatibilitas offline/lokal)
+            const textarea = document.createElement("textarea");
+            textarea.value = text;
+            textarea.style.position = "fixed";  // Prevent scrolling to bottom
+            textarea.style.left = "-9999px";
+            document.body.appendChild(textarea);
+            textarea.focus();
+            textarea.select();
+
+            try {
+                const successful = document.execCommand('copy');
+                if (successful) {
+                    const icon = btn.querySelector('i');
+                    icon.className = 'fas fa-check';
+                    showToast('Berhasil disalin!');
+                    setTimeout(() => icon.className = 'far fa-copy', 2000);
+                } else {
+                    showToast('Gagal menyalin, coba manual.');
+                }
+            } catch (err) {
+                showToast('Gagal menyalin, coba manual.');
+            }
+
+            document.body.removeChild(textarea);
         }
 
         function showToast(message) {
